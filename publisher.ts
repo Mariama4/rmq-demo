@@ -5,7 +5,15 @@ const run = async () => {
 		const connection = await connect('amqp://localhost');
 		const channel = await connection.createChannel();
 		await channel.assertExchange('test', 'topic', { durable: true });
-		channel.publish('test', 'my.command', Buffer.from('Работает!'));
+		const replyQueue = await channel.assertQueue('', { exclusive: true });
+		channel.consume(replyQueue.queue, (message) => {
+			console.log(message?.content.toString());
+			console.log(message?.properties.correlationId);
+		});
+		channel.publish('test', 'my.command', Buffer.from('Работает!'), {
+			replyTo: replyQueue.queue,
+			correlationId: '1', // should be generated
+		});
 	} catch (e) {
 		console.error(e);
 	}
